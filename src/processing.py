@@ -5,7 +5,7 @@ from PIL.Image import Resampling
 from src.decoders import Palette, Color, Block
 
 
-def decode(path: str, palette: Palette, size: int, w: int, h: int, resample: Resampling, blocks: dict, stairs: bool):
+def decode(path: str, palette: Palette, size: int, w: int, h: int, resample: Resampling, blocks: dict, stairs: bool, transparent: bool):
     print('Loading image...')
     with Image.open(path) as image:
         print('Image loaded!')
@@ -20,16 +20,22 @@ def decode(path: str, palette: Palette, size: int, w: int, h: int, resample: Res
         for y in range(height):
             line = []
             for x in range(width):
-                r, g, b, a = image.getpixel((x, y))
+                r, g, b, a = image.getpixel((x, height - 1 - y))
                 if a < 128:
-                    line.append(None)
+                    if transparent:
+                        line.append((None, Block("minecraft:glass", {}, {}), 0))
+                    else:
+                        line.append(None)
                 else:
                     col = Color(r, g, b)
                     min_id = None
                     min_block = None
                     min_layer = 0
                     min_dst = float("inf")
-
+                    if y + 1 == height:
+                        down = 255
+                    else:
+                        _, _, _, down = image.getpixel((x, y + 1))
                     for col_id in palette:
                         c0 = palette[col_id][0]
                         c1 = palette[col_id][1]
@@ -97,7 +103,7 @@ def heightmap(data: list, width: int, height: int, generator, optimizer):
             max_h = max(max_h, h[x])
 
     for x in range(width):
-        if (x, height - 1) in heightmap:
+        if (x, height - 1) in heightmap and heightmap[x, height - 1][0] is not None:
             heightmap[x, height] = (h[x], 0, Block("_support_", {}, {}))
 
     for key in heightmap:
@@ -126,17 +132,17 @@ def generate_preview(path: str, data: list, heightmap: dict, max_h: int, width: 
     direction_computed = Image.new('RGBA', (width, height + 1), (0, 0, 0, 0))
     for y in range(height):
         for x in range(width):
-            if data[y][x] is None:
-                preview.putpixel((x, y), (0, 0, 0, 0))
+            if data[y][x] is None or data[y][x][0] is None:
+                preview.putpixel((x, height - 1 - y), (0, 0, 0, 0))
                 continue
             color = palette[data[y][x][0]][data[y][x][2] + 1]
-            preview.putpixel((x, y), (color.r, color.g, color.b, 255))
+            preview.putpixel((x, height - 1 - y), (color.r, color.g, color.b, 255))
 
     for pos, block in heightmap.items():
         g = int(255 * block[0] / (max_h + 1))
-        elevation.putpixel((pos[0], pos[1]), (g, g, g, 255))
+        elevation.putpixel((pos[0], height - pos[1]), (g, g, g, 255))
         g = int(255 * (1 - block[1]) / 3)
-        direction.putpixel((pos[0], pos[1]), (g, g, g, 255))
+        direction.putpixel((pos[0], height - pos[1]), (g, g, g, 255))
 
         if (pos[0], pos[1] + 1) in heightmap:
             g = heightmap[pos[0], pos[1] + 1][0] - block[0]
@@ -145,7 +151,7 @@ def generate_preview(path: str, data: list, heightmap: dict, max_h: int, width: 
             elif g > 0:
                 g = 1
             g = int(255 * (1 - g) / 3)
-            direction_computed.putpixel((pos[0], pos[1]), (g, g, g, 255))
+            direction_computed.putpixel((pos[0], height - pos[1]), (g, g, g, 255))
 
     preview.save(f'{path}_color.png')
     elevation.save(f'{path}_height.png')

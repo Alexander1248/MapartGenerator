@@ -35,10 +35,12 @@ if __name__ == '__main__':
                             help='Update block count list')
     arg_parser.add_argument('--preview', '-v', type=str,
                             help='Preview image filepath')
+    arg_parser.add_argument('--transparent', '-t', action='store_true',
+                            help='Place glass for transparent map')
     arg_parser.add_argument('--name', '-n', type=str, default="MapArt",
                             help='Litematica name (default: MapArt)')
     arg_parser.add_argument('--generator', '-g', type=str,
-                            choices=['plain', 'stairs', 'boundary', 'fast_boundary', 'dropout', 'fast_dropout'], default='dropout',
+                            choices=['plain', 'stairs', 'boundary', 'fast_boundary', 'dropout', 'fast_dropout'], default='stairs',
                             help='Litematica layering generator type (default: boundary)')
     args = arg_parser.parse_args()
     print('Generating mapart...')
@@ -61,7 +63,7 @@ if __name__ == '__main__':
         exit('Invalid resampling type')
 
     data, width, height = src.decode(args.image, palette, args.map_size, args.width,
-                                     args.height, resampling, blocks, args.generator != 'plain')
+                                     args.height, resampling, blocks, args.generator != 'plain', args.transparent)
 
     if args.generator == 'plain':
         h, max_h = src.heightmap(data, width, height, src.generators.plain, src.optimizers.none)
